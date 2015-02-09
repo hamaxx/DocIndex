@@ -10,6 +10,9 @@ type condition struct {
 type Query struct {
 	conditions []*condition
 	docIndex   *DocIndex
+
+	tmpLeafL *leaf
+	tmpLeafG *leaf
 }
 
 func NewQuery(index *DocIndex) *Query {
@@ -56,7 +59,7 @@ func (q *Query) Exec() []*Doc {
 		return results
 	}
 
-	limiter.tree.AscendRange(limiter.greaterOrEqual, limiter.lessThan, func(item btree.Item) bool {
+	limiter.tree.AscendRange(newQueryLeaf(limiter.greaterOrEqual), newQueryLeaf(limiter.lessThan), func(item btree.Item) bool {
 		leaf := item.(*leaf)
 		docs := leaf.docs
 		for _, doc := range docs {

@@ -20,11 +20,15 @@ type leaf struct {
 }
 
 func (l *leaf) Less(than btree.Item) bool {
-	return l.key.Less(than)
+	return l.key.Less(than.(*leaf).key)
 }
 
 func newLeaf(key btree.Item, doc *Doc) *leaf {
 	return &leaf{key: key, docs: []*Doc{doc}}
+}
+
+func newQueryLeaf(key btree.Item) *leaf {
+	return &leaf{key: key}
 }
 
 func New() *DocIndex {
@@ -43,12 +47,12 @@ func (index *DocIndex) addItem(name string, value btree.Item, doc *Doc) *btree.B
 		tree = btree.New(2)
 		index.index[name] = tree
 	}
-	item := tree.Get(value)
-	if item == nil {
+	r := tree.Get(newQueryLeaf(value))
+	if r == nil {
 		tree.ReplaceOrInsert(newLeaf(value, doc))
 	} else {
-		l := item.(*leaf)
-		l.docs = append(l.docs, doc)
+		leaf := r.(*leaf)
+		leaf.docs = append(leaf.docs, doc)
 	}
 	return tree
 }
