@@ -1,39 +1,17 @@
 package goindex
 
-import (
-	"github.com/google/btree"
-)
+import "github.com/google/btree"
 
 type GoIndex struct {
-	index map[string]*btree.BTree
-}
+	index map[string]*treeIndex
 
-type Doc struct {
-	value   interface{}
-	keys    map[*btree.BTree]btree.Item
-	goIndex *GoIndex
-}
-
-type leaf struct {
-	key  btree.Item
-	docs []*Doc
-}
-
-func (l *leaf) Less(than btree.Item) bool {
-	return l.key.Less(than.(*leaf).key)
-}
-
-func newLeaf(key btree.Item, doc *Doc) *leaf {
-	return &leaf{key: key, docs: []*Doc{doc}}
-}
-
-func newQueryLeaf(key btree.Item) *leaf {
-	return &leaf{key: key}
+	queyStats map[condition]float32 // TODO: lru
 }
 
 func New() *GoIndex {
 	return &GoIndex{
-		index: map[string]*btree.BTree{},
+		index:     map[string]*treeIndex{},
+		queyStats: map[condition]float32{},
 	}
 }
 
@@ -41,28 +19,28 @@ func (index *GoIndex) Query() *Query {
 	return NewQuery(index)
 }
 
-func (index *GoIndex) addItem(name string, value btree.Item, doc *Doc) *btree.BTree {
+func (index *GoIndex) addItem(name string, value btree.Item, doc *Doc) *treeIndex {
 	tree, ok := index.index[name]
 	if !ok {
-		tree = btree.New(2)
+		tree = newTreeIndex()
 		index.index[name] = tree
 	}
-	r := tree.Get(newQueryLeaf(value))
-	if r == nil {
-		tree.ReplaceOrInsert(newLeaf(value, doc))
-	} else {
-		leaf := r.(*leaf)
-		leaf.docs = append(leaf.docs, doc)
-	}
+	tree.insert(value, doc)
 	return tree
 }
 
 func (index *GoIndex) NewDoc(value interface{}) *Doc {
 	return &Doc{
 		value:   value,
-		keys:    map[*btree.BTree]btree.Item{},
+		keys:    map[*treeIndex]btree.Item{},
 		goIndex: index,
 	}
+}
+
+type Doc struct {
+	value   interface{}
+	keys    map[*treeIndex]btree.Item
+	goIndex *GoIndex
 }
 
 func (doc *Doc) Value() interface{} {
@@ -85,4 +63,31 @@ func (doc *Doc) FloatKey(name string, value float64) *Doc {
 
 func (doc *Doc) StringKey(name string, value string) *Doc {
 	return doc.ItemKey(name, (String)(value))
+}
+
+type treeIndex struct {
+	tree *btree.BTree
+	docs map[btree.Item][]*Doc
+
+	count         int
+	avgQueryLimit float32
+}
+
+func newTreeIndex() *treeIndex {
+	return &treeIndex{
+		tree:          btree.New(2),
+		docs:          map[btree.Item][]*Doc{},
+		count:         0,
+		avgQueryLimit: 0,
+	}
+}
+
+func (t *treeIndex) insert(value btree.Item, doc *Doc) {
+	r := t.tree.Get(value)
+	if r == nil {
+		r = value
+		t.tree.ReplaceOrInsert(value)
+	}
+	t.docs[r] = append(t.docs[r], doc)
+	t.count++
 }
