@@ -1,4 +1,4 @@
-package docindex
+package goindex
 
 import (
 	"testing"

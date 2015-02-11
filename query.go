@@ -1,4 +1,4 @@
-package docindex
+package goindex
 
 import "github.com/google/btree"
 
@@ -9,21 +9,21 @@ type condition struct {
 
 type Query struct {
 	conditions []*condition
-	docIndex   *DocIndex
+	goIndex    *GoIndex
 
 	tmpLeafL *leaf
 	tmpLeafG *leaf
 }
 
-func NewQuery(index *DocIndex) *Query {
+func NewQuery(index *GoIndex) *Query {
 	return &Query{
-		docIndex:   index,
+		goIndex:    index,
 		conditions: []*condition{},
 	}
 }
 
 func (q *Query) ItemFilter(name string, greaterOrEqual, lessThan btree.Item) *Query {
-	tree, ok := q.docIndex.index[name]
+	tree, ok := q.goIndex.index[name]
 	if !ok {
 		return q
 	}

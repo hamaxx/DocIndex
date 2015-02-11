@@ -1,12 +1,12 @@
-# DocIndex
+# GoIndex
 In-memory document search
 
 
 ### Example ###
 
-    import "github.com/hamaxx/docindex"
+    import "github.com/hamaxx/goindex"
 
-    index := docindex.New()
+    index := goindex.New()
 
 	index.NewDoc("A").IntKey("len", 1).StringKey("k", "A")
 	index.NewDoc("B").IntKey("len", 1).StringKey("k", "B")

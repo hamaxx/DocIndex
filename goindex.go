@@ -1,17 +1,17 @@
-package docindex
+package goindex
 
 import (
 	"github.com/google/btree"
 )
 
-type DocIndex struct {
+type GoIndex struct {
 	index map[string]*btree.BTree
 }
 
 type Doc struct {
-	value    interface{}
-	keys     map[*btree.BTree]btree.Item
-	docIndex *DocIndex
+	value   interface{}
+	keys    map[*btree.BTree]btree.Item
+	goIndex *GoIndex
 }
 
 type leaf struct {
@@ -31,17 +31,17 @@ func newQueryLeaf(key btree.Item) *leaf {
 	return &leaf{key: key}
 }
 
-func New() *DocIndex {
-	return &DocIndex{
+func New() *GoIndex {
+	return &GoIndex{
 		index: map[string]*btree.BTree{},
 	}
 }
 
-func (index *DocIndex) Query() *Query {
+func (index *GoIndex) Query() *Query {
 	return NewQuery(index)
 }
 
-func (index *DocIndex) addItem(name string, value btree.Item, doc *Doc) *btree.BTree {
+func (index *GoIndex) addItem(name string, value btree.Item, doc *Doc) *btree.BTree {
 	tree, ok := index.index[name]
 	if !ok {
 		tree = btree.New(2)
@@ -57,11 +57,11 @@ func (index *DocIndex) addItem(name string, value btree.Item, doc *Doc) *btree.B
 	return tree
 }
 
-func (index *DocIndex) NewDoc(value interface{}) *Doc {
+func (index *GoIndex) NewDoc(value interface{}) *Doc {
 	return &Doc{
-		value:    value,
-		keys:     map[*btree.BTree]btree.Item{},
-		docIndex: index,
+		value:   value,
+		keys:    map[*btree.BTree]btree.Item{},
+		goIndex: index,
 	}
 }
 
@@ -70,7 +70,7 @@ func (doc *Doc) Value() interface{} {
 }
 
 func (doc *Doc) ItemKey(name string, item btree.Item) *Doc {
-	tree := doc.docIndex.addItem(name, item, doc)
+	tree := doc.goIndex.addItem(name, item, doc)
 	doc.keys[tree] = item
 	return doc
 }
