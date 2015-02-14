@@ -1,17 +1,25 @@
 package goindex
 
-import "github.com/google/btree"
+import (
+	"sync/atomic"
+
+	"github.com/google/btree"
+)
 
 type GoIndex struct {
-	index map[string]*treeIndex
+	index map[uint32]*treeIndex
 
-	queyStats map[condition]float32 // TODO: lru
+	indexKeys    map[string]uint32
+	nextIndexKey uint32
+
+	queyStats map[uint32]float32 // TODO: lru
 }
 
 func New() *GoIndex {
 	return &GoIndex{
-		index:     map[string]*treeIndex{},
-		queyStats: map[condition]float32{},
+		index:     make(map[uint32]*treeIndex, 10),
+		indexKeys: make(map[string]uint32, 10),
+		queyStats: make(map[uint32]float32, 1000),
 	}
 }
 
@@ -19,28 +27,28 @@ func (index *GoIndex) Query() *Query {
 	return NewQuery(index)
 }
 
-func (index *GoIndex) addItem(name string, value btree.Item, doc *Doc) *treeIndex {
-	tree, ok := index.index[name]
+func (index *GoIndex) addItem(indexKey uint32, value btree.Item, doc *Doc) *treeIndex {
+	tree, ok := index.index[indexKey]
 	if !ok {
 		tree = newTreeIndex()
-		index.index[name] = tree
+		index.index[indexKey] = tree
 	}
 	tree.insert(value, doc)
 	return tree
 }
 
+type Doc struct {
+	value   interface{}
+	keys    map[uint32]btree.Item
+	goIndex *GoIndex
+}
+
 func (index *GoIndex) NewDoc(value interface{}) *Doc {
 	return &Doc{
 		value:   value,
-		keys:    map[*treeIndex]btree.Item{},
+		keys:    map[uint32]btree.Item{},
 		goIndex: index,
 	}
-}
-
-type Doc struct {
-	value   interface{}
-	keys    map[*treeIndex]btree.Item
-	goIndex *GoIndex
 }
 
 func (doc *Doc) Value() interface{} {
@@ -48,8 +56,14 @@ func (doc *Doc) Value() interface{} {
 }
 
 func (doc *Doc) ItemKey(name string, item btree.Item) *Doc {
-	tree := doc.goIndex.addItem(name, item, doc)
-	doc.keys[tree] = item
+	indexKey, ok := doc.goIndex.indexKeys[name]
+	if !ok {
+		indexKey = atomic.AddUint32(&doc.goIndex.nextIndexKey, 1)
+		doc.goIndex.indexKeys[name] = indexKey
+	}
+
+	doc.goIndex.addItem(indexKey, item, doc)
+	doc.keys[indexKey] = item
 	return doc
 }
 
@@ -76,7 +90,7 @@ type treeIndex struct {
 func newTreeIndex() *treeIndex {
 	return &treeIndex{
 		tree:          btree.New(2),
-		docs:          map[btree.Item][]*Doc{},
+		docs:          make(map[btree.Item][]*Doc, 1000),
 		count:         0,
 		avgQueryLimit: 0,
 	}
