@@ -2,6 +2,7 @@ package goindex
 
 import (
 	"sort"
+	"sync"
 
 	"github.com/google/btree"
 )
@@ -15,6 +16,8 @@ type conditioner interface {
 	Score() float32
 	CalcScore(*GoIndex)
 	UpdateScore(*GoIndex, int)
+
+	Destruct()
 }
 
 type conditionScore []conditioner
@@ -34,11 +37,32 @@ type Query struct {
 	goIndex    *GoIndex
 }
 
+var queryPool = sync.Pool{}
+
 func NewQuery(index *GoIndex) *Query {
-	return &Query{
-		goIndex:    index,
-		conditions: make([]conditioner, 0, 10),
+	var q *Query
+
+	if v := queryPool.Get(); v != nil {
+		q = v.(*Query)
+		q.goIndex = index
+		q.conditions = q.conditions[:0]
+	} else {
+		q = &Query{
+			goIndex:    index,
+			conditions: make([]conditioner, 0, 10),
+		}
 	}
+
+	return q
+}
+
+var itemSlicePool = sync.Pool{}
+
+func newItemSlice() []btree.Item {
+	if v := itemSlicePool.Get(); v != nil {
+		return v.([]btree.Item)[:0]
+	}
+	return make([]btree.Item, 0, 10)
 }
 
 func (q *Query) ItemRangeFilter(name string, greaterOrEqual, lessThan btree.Item) *Query {
@@ -70,25 +94,25 @@ func (q *Query) ItemInFilter(name string, items ...btree.Item) *Query {
 }
 
 func (q *Query) IntInFilter(name string, items ...int) *Query {
-	s := make([]btree.Item, len(items))
-	for i, item := range items {
-		s[i] = Int(item)
+	s := newItemSlice()
+	for _, item := range items {
+		s = append(s, Int(item))
 	}
 	return q.ItemInFilter(name, s...)
 }
 
 func (q *Query) FloatInFilter(name string, items ...float64) *Query {
-	s := make([]btree.Item, len(items))
-	for i, item := range items {
-		s[i] = Float(item)
+	s := newItemSlice()
+	for _, item := range items {
+		s = append(s, Float(item))
 	}
 	return q.ItemInFilter(name, s...)
 }
 
 func (q *Query) StringInFilter(name string, items ...string) *Query {
-	s := make([]btree.Item, len(items))
-	for i, item := range items {
-		s[i] = String(item)
+	s := newItemSlice()
+	for _, item := range items {
+		s = append(s, String(item))
 	}
 	return q.ItemInFilter(name, s...)
 }
@@ -136,6 +160,11 @@ func (q *Query) Exec() []*Doc {
 	})
 
 	limiter.UpdateScore(q.goIndex, rangeSize)
+
+	queryPool.Put(q)
+	for _, c := range q.conditions {
+		c.Destruct()
+	}
 
 	return results
 }

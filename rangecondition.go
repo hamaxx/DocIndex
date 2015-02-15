@@ -1,6 +1,8 @@
 package goindex
 
 import (
+	"sync"
+
 	"github.com/google/btree"
 )
 
@@ -15,7 +17,17 @@ type rangeCondition struct {
 	score float32
 }
 
+var rangeConditionPool = sync.Pool{}
+
 func newRangeCondition(goIndex *GoIndex, name string, greaterOrEqual, lessThan btree.Item) *rangeCondition {
+	var c *rangeCondition
+
+	if v := rangeConditionPool.Get(); c != nil {
+		c = v.(*rangeCondition)
+	} else {
+		c = &rangeCondition{}
+	}
+
 	indexKey, ok := goIndex.indexKeys[name]
 	if !ok {
 		return nil
@@ -26,12 +38,12 @@ func newRangeCondition(goIndex *GoIndex, name string, greaterOrEqual, lessThan b
 		return nil
 	}
 
-	return &rangeCondition{
-		tree:           tree,
-		indexKey:       indexKey,
-		greaterOrEqual: greaterOrEqual,
-		lessThan:       lessThan,
-	}
+	c.tree = tree
+	c.indexKey = indexKey
+	c.greaterOrEqual = greaterOrEqual
+	c.lessThan = lessThan
+
+	return c
 }
 
 func (c *rangeCondition) Match(item btree.Item) bool {
@@ -79,4 +91,8 @@ func (c *rangeCondition) ConditionKey() interface{} {
 
 func (c *rangeCondition) IndexKey() uint32 {
 	return c.indexKey
+}
+
+func (c *rangeCondition) Destruct() {
+	rangeConditionPool.Put(c)
 }
