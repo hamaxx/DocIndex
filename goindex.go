@@ -12,14 +12,14 @@ type GoIndex struct {
 	indexKeys    map[string]uint32
 	nextIndexKey uint32
 
-	queyStats map[uint32]float32 // TODO: lru
+	queryStats map[interface{}]float32 // TODO: lru
 }
 
 func New() *GoIndex {
 	return &GoIndex{
-		index:     make(map[uint32]*treeIndex, 10),
-		indexKeys: make(map[string]uint32, 10),
-		queyStats: make(map[uint32]float32, 1000),
+		index:      make(map[uint32]*treeIndex, 10),
+		indexKeys:  make(map[string]uint32, 10),
+		queryStats: make(map[interface{}]float32, 1000),
 	}
 }
 

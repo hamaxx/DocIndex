@@ -7,9 +7,8 @@ import (
 const queryLimitRunningAverageRate = 0.01
 
 type rangeCondition struct {
-	indexKey uint32
-
 	tree           *treeIndex
+	indexKey       uint32
 	greaterOrEqual btree.Item
 	lessThan       btree.Item
 
@@ -28,8 +27,8 @@ func newRangeCondition(goIndex *GoIndex, name string, greaterOrEqual, lessThan b
 	}
 
 	return &rangeCondition{
-		indexKey:       indexKey,
 		tree:           tree,
+		indexKey:       indexKey,
 		greaterOrEqual: greaterOrEqual,
 		lessThan:       lessThan,
 	}
@@ -42,12 +41,23 @@ func (c *rangeCondition) Match(item btree.Item) bool {
 	return true
 }
 
+func (c *rangeCondition) Iter(cb func(*Doc) bool) {
+	c.tree.tree.AscendRange(c.greaterOrEqual, c.lessThan, func(res btree.Item) bool {
+		for _, doc := range c.tree.docs[res] {
+			if !cb(doc) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 func (c *rangeCondition) Score() float32 {
 	return c.score
 }
 
 func (c *rangeCondition) CalcScore(index *GoIndex) {
-	if qs, ok := index.queyStats[c.indexKey]; ok {
+	if qs, ok := index.queryStats[c.ConditionKey()]; ok {
 		c.score = qs
 	} else {
 		c.score = c.tree.avgQueryLimit
@@ -60,20 +70,13 @@ func (c *rangeCondition) UpdateScore(index *GoIndex, selectedCount int) {
 	c.tree.avgQueryLimit += limitRate * queryLimitRunningAverageRate
 	c.tree.avgQueryLimit *= 1 - queryLimitRunningAverageRate
 
-	index.queyStats[c.indexKey] = limitRate
+	index.queryStats[c.ConditionKey()] = limitRate
 }
 
-func (c *rangeCondition) Key() uint32 {
+func (c *rangeCondition) ConditionKey() interface{} {
+	return *c
+}
+
+func (c *rangeCondition) IndexKey() uint32 {
 	return c.indexKey
-}
-
-func (c *rangeCondition) Iter(cb func(*Doc) bool) {
-	c.tree.tree.AscendRange(c.greaterOrEqual, c.lessThan, func(res btree.Item) bool {
-		for _, doc := range c.tree.docs[res] {
-			if !cb(doc) {
-				return false
-			}
-		}
-		return true
-	})
 }

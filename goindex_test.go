@@ -35,7 +35,7 @@ func TestDocEmptyIndex(t *testing.T) {
 	index.NewDoc("A")
 	index.Query().IntRangeFilter("len", 1, 3).Exec()
 }
-func TestDocIndex(t *testing.T) {
+func TestDocRangeIndex(t *testing.T) {
 	index := New()
 
 	doc1 := index.NewDoc("A")
@@ -83,6 +83,54 @@ func TestDocIndex(t *testing.T) {
 	}
 }
 
+func TestDocInIndex(t *testing.T) {
+	index := New()
+
+	doc1 := index.NewDoc("A")
+	doc1.IntKey("len", 1).StringKey("k", "A")
+
+	doc2 := index.NewDoc("B")
+	doc2.IntKey("len", 1).StringKey("k", "B")
+
+	doc3 := index.NewDoc("AA")
+	doc3.IntKey("len", 2).StringKey("k", "AA")
+
+	doc4 := index.NewDoc("Num")
+	doc4.FloatKey("val", 1.5)
+
+	resFull := index.Query().IntInFilter("len", 1, 2).Exec()
+	if len(resFull) != 3 {
+		t.Fatalf("Invalid result count: %d != 3", len(resFull))
+	}
+	if !testItems(resFull, []*Doc{doc1, doc2, doc3}) {
+		t.Fatalf("Missmatching results")
+	}
+
+	res2 := index.Query().IntInFilter("len", 1).Exec()
+	if len(res2) != 2 {
+		t.Fatalf("Invalid result count: %d != 2", len(res2))
+	}
+	if !testItems(res2, []*Doc{doc1, doc2}) {
+		t.Fatalf("Missmatching results")
+	}
+
+	resA := index.Query().IntInFilter("len", 1, 2, 3).StringInFilter("k", "A", "AA").Exec()
+	if len(resA) != 2 {
+		t.Fatalf("Invalid result count: %d != 2", len(resA))
+	}
+	if !testItems(resA, []*Doc{doc1, doc3}) {
+		t.Fatalf("Missmatching results")
+	}
+
+	resFloat := index.Query().FloatInFilter("val", 1.5).Exec()
+	if len(resFloat) != 1 {
+		t.Fatalf("Invalid result count: %d != 1", len(resFloat))
+	}
+	if !testItems(resFloat, []*Doc{doc4}) {
+		t.Fatalf("Missmatching results")
+	}
+}
+
 func BenchmarkInsert(b *testing.B) {
 	index := New()
 	for i := 0; i < b.N; i++ {
@@ -90,7 +138,7 @@ func BenchmarkInsert(b *testing.B) {
 	}
 }
 
-func BenchmarkFilter(b *testing.B) {
+func BenchmarkRangeFilter(b *testing.B) {
 	b.StopTimer()
 
 	index := New()
@@ -105,9 +153,32 @@ func BenchmarkFilter(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		if i%5 == 0 {
-			index.Query().IntRangeFilter("i1", 0, 50).IntRangeFilter("i2", 0, 25).IntRangeFilter("i3", 0, 1).Exec()
+			index.Query().IntRangeFilter("i1", 0, 50).IntRangeFilter("i2", 0, 20).IntRangeFilter("i3", 0, 1).Exec()
 		} else {
-			index.Query().IntRangeFilter("i1", 0, 50).IntRangeFilter("i2", 0, 25).IntRangeFilter("i3", 0, 100).Exec()
+			index.Query().IntRangeFilter("i1", 0, 50).IntRangeFilter("i2", 0, 20).IntRangeFilter("i3", 0, 100).Exec()
+		}
+	}
+}
+
+func BenchmarkInFilter(b *testing.B) {
+	b.StopTimer()
+
+	index := New()
+	for i := 0; i < 10000; i++ {
+		doc := index.NewDoc("A")
+		for j := 0; j < 100; j++ {
+			doc.IntKey(fmt.Sprintf("i%d", j), int(rand.Uint32()%10))
+		}
+		doc.IntKey("i100", int(rand.Uint32()%100))
+	}
+
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		if i%5 == 0 {
+			index.Query().IntInFilter("i1", 0, 1, 2, 3, 4).IntInFilter("i2", 0, 1).IntInFilter("i100", 0).Exec()
+		} else {
+			index.Query().IntInFilter("i1", 0, 1, 2, 3, 4).IntInFilter("i2", 0, 1).IntInFilter("i3", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9).Exec()
 		}
 	}
 }

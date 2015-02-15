@@ -16,3 +16,8 @@ In-memory document search
 	resFull := index.Query().IntRangeFilter("len", 1, 3).Exec()
 	resLen1 := index.Query().IntRangeFilter("len", 1, 2).Exec()
 	resA := index.Query().StringRangeFilter("k", "A", "B").Exec()
+
+	resA := index.Query().IntInFilter("len", 1).Exec()
+	resA := index.Query().StringInFilter("k", "A", "AA").Exec()
+
+	resA := index.Query().StringInFilter("k", "A", "AA").IntRangeFilter("len", 1, 2).Exec()

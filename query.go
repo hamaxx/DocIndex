@@ -10,7 +10,7 @@ type conditioner interface {
 	Match(item btree.Item) bool
 	Iter(func(*Doc) bool)
 
-	Key() uint32
+	IndexKey() uint32
 
 	Score() float32
 	CalcScore(*GoIndex)
@@ -41,7 +41,7 @@ func NewQuery(index *GoIndex) *Query {
 	}
 }
 
-func (q *Query) ItemFilter(name string, greaterOrEqual, lessThan btree.Item) *Query {
+func (q *Query) ItemRangeFilter(name string, greaterOrEqual, lessThan btree.Item) *Query {
 	c := newRangeCondition(q.goIndex, name, greaterOrEqual, lessThan)
 	if c != nil {
 		q.conditions = append(q.conditions, c)
@@ -50,15 +50,47 @@ func (q *Query) ItemFilter(name string, greaterOrEqual, lessThan btree.Item) *Qu
 }
 
 func (q *Query) IntRangeFilter(name string, greaterOrEqual, lessThan int) *Query {
-	return q.ItemFilter(name, (Int)(greaterOrEqual), (Int)(lessThan))
+	return q.ItemRangeFilter(name, Int(greaterOrEqual), Int(lessThan))
 }
 
 func (q *Query) FloatRangeFilter(name string, greaterOrEqual, lessThan float64) *Query {
-	return q.ItemFilter(name, (Float)(greaterOrEqual), (Float)(lessThan))
+	return q.ItemRangeFilter(name, Float(greaterOrEqual), Float(lessThan))
 }
 
 func (q *Query) StringRangeFilter(name string, greaterOrEqual, lessThan string) *Query {
-	return q.ItemFilter(name, (String)(greaterOrEqual), (String)(lessThan))
+	return q.ItemRangeFilter(name, String(greaterOrEqual), String(lessThan))
+}
+
+func (q *Query) ItemInFilter(name string, items ...btree.Item) *Query {
+	c := newInCondition(q.goIndex, name, items)
+	if c != nil {
+		q.conditions = append(q.conditions, c)
+	}
+	return q
+}
+
+func (q *Query) IntInFilter(name string, items ...int) *Query {
+	s := make([]btree.Item, len(items))
+	for i, item := range items {
+		s[i] = Int(item)
+	}
+	return q.ItemInFilter(name, s...)
+}
+
+func (q *Query) FloatInFilter(name string, items ...float64) *Query {
+	s := make([]btree.Item, len(items))
+	for i, item := range items {
+		s[i] = Float(item)
+	}
+	return q.ItemInFilter(name, s...)
+}
+
+func (q *Query) StringInFilter(name string, items ...string) *Query {
+	s := make([]btree.Item, len(items))
+	for i, item := range items {
+		s[i] = String(item)
+	}
+	return q.ItemInFilter(name, s...)
 }
 
 func (q *Query) findBestLimiter() (conditioner, []conditioner) {
@@ -90,7 +122,7 @@ func (q *Query) Exec() []*Doc {
 	limiter.Iter(func(doc *Doc) bool {
 		rangeSize++
 		for _, c := range filters {
-			item, ok := doc.keys[c.Key()]
+			item, ok := doc.keys[c.IndexKey()]
 			if !ok {
 				return true
 			}
