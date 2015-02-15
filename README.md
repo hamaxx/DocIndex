@@ -1,7 +1,7 @@
 # GoIndex
 In-memory document search
 
-*This is an experimental project so use it as such*
+**This is an experimental project so use it as such**
 
 ### Example ###
 
