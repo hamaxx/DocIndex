@@ -54,6 +54,7 @@ func (c *rangeCondition) Match(item btree.Item) bool {
 }
 
 func (c *rangeCondition) Iter(cb func(*Doc) bool) {
+	//	fmt.Println(c.tree.tree)
 	c.tree.tree.AscendRange(c.greaterOrEqual, c.lessThan, func(res btree.Item) bool {
 		for _, doc := range c.tree.docs[res] {
 			if !cb(doc) {

@@ -27,6 +27,10 @@ func (index *GoIndex) Query() *Query {
 	return NewQuery(index)
 }
 
+func (index *GoIndex) IndexKeys() map[string]uint32 {
+	return index.indexKeys
+}
+
 func (index *GoIndex) addItem(indexKey uint32, value btree.Item, doc *Doc) *treeIndex {
 	tree, ok := index.index[indexKey]
 	if !ok {
@@ -51,6 +55,21 @@ func (index *GoIndex) NewDoc(value interface{}) *Doc {
 	}
 }
 
+func (doc *Doc) Delete() {
+	for itemKey, item := range doc.keys {
+		for docK, docF := range doc.goIndex.index[itemKey].docs[item] {
+			if docF.value == doc.value {
+				doc.goIndex.index[itemKey].docs[item] = append(doc.goIndex.index[itemKey].docs[item][:docK], doc.goIndex.index[itemKey].docs[item][docK+1:]...)
+				doc.goIndex.index[itemKey].count--
+				if doc.goIndex.index[itemKey].count == 0 {
+					// delete from btree index
+					doc.goIndex.index[itemKey].tree.Delete(item)
+				}
+			}
+		}
+	}
+}
+
 func (doc *Doc) Value() interface{} {
 	return doc.value
 }
@@ -69,6 +88,10 @@ func (doc *Doc) ItemKey(name string, item btree.Item) *Doc {
 
 func (doc *Doc) IntKey(name string, value int) *Doc {
 	return doc.ItemKey(name, (Int)(value))
+}
+
+func (doc *Doc) SmallIntKey(name string, value int8) *Doc {
+	return doc.ItemKey(name, (SmallInt)(value))
 }
 
 func (doc *Doc) FloatKey(name string, value float64) *Doc {
