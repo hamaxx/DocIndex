@@ -72,6 +72,9 @@ func (q *Query) ItemRangeFilter(name string, greaterOrEqual, lessThan btree.Item
 	}
 	return q
 }
+func (q *Query) SmallIntRangeFilter(name string, greaterOrEqual, lessThan int) *Query {
+	return q.ItemRangeFilter(name, SmallInt(greaterOrEqual), SmallInt(lessThan))
+}
 
 func (q *Query) IntRangeFilter(name string, greaterOrEqual, lessThan int) *Query {
 	return q.ItemRangeFilter(name, Int(greaterOrEqual), Int(lessThan))
@@ -98,6 +101,16 @@ func (q *Query) IntInFilter(name string, items ...int) *Query {
 	for _, item := range items {
 		s = append(s, Int(item))
 	}
+
+	return q.ItemInFilter(name, s...)
+}
+
+func (q *Query) SmallIntInFilter(name string, items ...int) *Query {
+	s := newItemSlice()
+	for _, item := range items {
+		s = append(s, SmallInt(item))
+	}
+
 	return q.ItemInFilter(name, s...)
 }
 
